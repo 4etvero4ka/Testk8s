@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app
+  labels:
+    app: my-app-deploy
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: my-app-deploy
+  template:
+    metadata:
+      labels:
+        app: my-app-deploy
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1 
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway 
+          labelSelector:
+            matchLabels:
+              app: my-app-deploy
+      containers:
+        - name: test
+          image: testimage:latest 
+          resources:
+            requests:
+              cpu: "0.1"
+              memory: "129Mi" # +1 Мб для перестраховки 
+            limits: # Предположу, что значительная нагрузка будет потреблять следующие параметры
+              cpu: "1" 
+              memory: "300Mi"
+          startupProbe:
+            httpGet:
+                path: /tmp/healthy
+                port: 80
+            failureThreshold: 10
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /tmp/healthy
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe: # Реализация отказоусточивости
+            httpGet:
+              path: /tmp/healthy
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          ports:
+            - containerPort: 80
